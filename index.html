@@ -393,8 +393,8 @@ canvas {
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 
-const GRAVITY = 0.55;
-const JUMP_FORCE = -11;
+const GRAVITY = 0.5;
+const JUMP_FORCE = -13;
 const MOVE_SPEED = 4.5;
 const TILE = 40;
 
@@ -460,20 +460,20 @@ const LEVELS = [
       {x:0,y:10,w:8,h:2},
       {x:10,y:9,w:4,h:2},
       {x:16,y:8,w:5,h:2},
-      {x:15,y:12,w:3,h:1},
+      {x:15,y:11,w:3,h:1},
       {x:23,y:9,w:4,h:2},
-      {x:22,y:13,w:3,h:1},
+      {x:22,y:11,w:3,h:1},
       {x:29,y:7,w:4,h:2},
       {x:35,y:9,w:5,h:2},
       {x:42,y:8,w:4,h:2},
-      {x:41,y:12,w:3,h:1},
+      {x:41,y:11,w:3,h:1},
       {x:48,y:10,w:5,h:2},
       {x:55,y:8,w:4,h:2},
-      {x:54,y:12,w:3,h:1},
+      {x:54,y:11,w:3,h:1},
       {x:61,y:9,w:4,h:2},
       {x:67,y:7,w:5,h:2},
       {x:74,y:9,w:4,h:2},
-      {x:73,y:13,w:3,h:1},
+      {x:73,y:11,w:3,h:1},
       {x:80,y:10,w:8,h:2},
       {x:0,y:14,w:90,h:2}
     ],
@@ -481,16 +481,16 @@ const LEVELS = [
       {x:12,y:7,type:'fact',icon:'&#129309;',title:'Inclusief Werkgeverschap',text:'Driessen Groep gelooft dat iedereen recht heeft op waardevol werk. We helpen ook mensen met een afstand tot de arbeidsmarkt aan een baan.'},
       {x:18,y:6,type:'coin'},
       {x:24,y:7,type:'coin'},
-      {x:16,y:11,type:'fact',icon:'&#128105;&#8205;&#128188;',title:'Diversiteit & Inclusie',text:'B-Corp bedrijven worden beoordeeld op diversiteit in het personeelsbestand. Driessen zet zich actief in voor gelijke kansen, ongeacht achtergrond.'},
+      {x:16,y:10,type:'fact',icon:'&#128105;&#8205;&#128188;',title:'Diversiteit & Inclusie',text:'B-Corp bedrijven worden beoordeeld op diversiteit in het personeelsbestand. Driessen zet zich actief in voor gelijke kansen, ongeacht achtergrond.'},
       {x:31,y:5,type:'coin'},
       {x:37,y:7,type:'coin'},
-      {x:42,y:11,type:'fact',icon:'&#127793;',title:'Persoonlijke Groei',text:'Werk gaat niet alleen om geld verdienen. Het biedt structuur, sociale contacten en de mogelijkheid om jezelf te ontwikkelen. Dat is de echte waarde van werk!'},
+      {x:42,y:10,type:'fact',icon:'&#127793;',title:'Persoonlijke Groei',text:'Werk gaat niet alleen om geld verdienen. Het biedt structuur, sociale contacten en de mogelijkheid om jezelf te ontwikkelen. Dat is de echte waarde van werk!'},
       {x:50,y:8,type:'coin'},
-      {x:55,y:11,type:'fact',icon:'&#10084;&#65039;',title:'Welzijn van Medewerkers',text:'Als B-Corp meet Driessen Groep ook het welzijn van medewerkers. Blije medewerkers maken meer impact en dat straalt door naar de mensen die zij aan werk helpen.'},
+      {x:55,y:10,type:'fact',icon:'&#10084;&#65039;',title:'Welzijn van Medewerkers',text:'Als B-Corp meet Driessen Groep ook het welzijn van medewerkers. Blije medewerkers maken meer impact en dat straalt door naar de mensen die zij aan werk helpen.'},
       {x:62,y:7,type:'coin'},
       {x:68,y:5,type:'coin'},
       {x:75,y:7,type:'coin'},
-      {x:74,y:12,type:'fact',icon:'&#128170;',title:'De Kracht van Werk',text:'Bij Driessen zeggen we: werk is de motor van de maatschappij. Door mensen te verbinden met werk creëren we een positieve impact die verder gaat dan de werkplek.'},
+      {x:74,y:10,type:'fact',icon:'&#128170;',title:'De Kracht van Werk',text:'Bij Driessen zeggen we: werk is de motor van de maatschappij. Door mensen te verbinden met werk creëren we een positieve impact die verder gaat dan de werkplek.'},
       {x:83,y:8,type:'coin'}
     ],
     hazards: [
@@ -517,15 +517,15 @@ const LEVELS = [
       {x:0,y:10,w:6,h:2},
       {x:8,y:9,w:3,h:2},
       {x:13,y:8,w:4,h:2},
-      {x:12,y:12,w:3,h:1},
+      {x:12,y:11,w:3,h:1},
       {x:19,y:10,w:3,h:2},
       {x:24,y:8,w:4,h:2},
-      {x:23,y:12,w:3,h:1},
+      {x:23,y:11,w:3,h:1},
       {x:30,y:7,w:3,h:2},
       {x:35,y:9,w:4,h:2},
       {x:41,y:7,w:3,h:2},
       {x:46,y:9,w:5,h:2},
-      {x:45,y:13,w:3,h:1},
+      {x:45,y:11,w:3,h:1},
       {x:53,y:8,w:4,h:2},
       {x:59,y:10,w:4,h:2},
       {x:65,y:8,w:3,h:2},
@@ -536,14 +536,14 @@ const LEVELS = [
     collectibles: [
       {x:9,y:7,type:'coin'},
       {x:14,y:6,type:'fact',icon:'&#9889;',title:'Groene Energie',text:'B-Corp bedrijven streven naar 100% duurzame energie. Door te kiezen voor groene stroom verklein je direct de CO2-uitstoot van je organisatie.'},
-      {x:13,y:11,type:'coin'},
+      {x:13,y:10,type:'coin'},
       {x:20,y:8,type:'coin'},
       {x:25,y:6,type:'fact',icon:'&#9851;&#65039;',title:'Circulaire Economie',text:'Afval bestaat niet in een circulaire economie. B-Corp bedrijven worden beoordeeld op hun inspanningen om afval te verminderen en materialen te hergebruiken.'},
       {x:31,y:5,type:'coin'},
       {x:36,y:7,type:'coin'},
       {x:42,y:5,type:'fact',icon:'&#127758;',title:'CO2 Voetafdruk',text:'Elke organisatie heeft een ecologische voetafdruk. B-Corp certificering helpt bedrijven deze te meten en te verkleinen. Kennis is de eerste stap naar verbetering!'},
       {x:48,y:7,type:'coin'},
-      {x:46,y:12,type:'coin'},
+      {x:46,y:10,type:'coin'},
       {x:54,y:6,type:'fact',icon:'&#128166;',title:'Waterverbruik',text:'Water is kostbaar. B-Corp bedrijven letten op hun waterverbruik en zoeken naar manieren om zuiniger om te gaan met deze belangrijke hulpbron.'},
       {x:60,y:8,type:'coin'},
       {x:66,y:6,type:'coin'},
@@ -581,12 +581,12 @@ const LEVELS = [
       {x:25,y:7,w:4,h:2},
       {x:31,y:9,w:3,h:2},
       {x:36,y:7,w:4,h:2},
-      {x:35,y:12,w:3,h:1},
+      {x:35,y:11,w:3,h:1},
       {x:42,y:9,w:3,h:2},
       {x:47,y:7,w:4,h:2},
       {x:53,y:9,w:3,h:2},
       {x:58,y:8,w:5,h:2},
-      {x:57,y:12,w:3,h:1},
+      {x:57,y:11,w:3,h:1},
       {x:65,y:7,w:3,h:2},
       {x:70,y:9,w:4,h:2},
       {x:76,y:10,w:8,h:2},
@@ -600,11 +600,11 @@ const LEVELS = [
       {x:26,y:5,type:'fact',icon:'&#9878;&#65039;',title:'Stakeholder Governance',text:'Anders dan traditionele bedrijven kijkt een B-Corp niet alleen naar aandeelhouders, maar naar alle stakeholders: medewerkers, klanten, leveranciers, de gemeenschap én het milieu.'},
       {x:32,y:7,type:'coin'},
       {x:37,y:5,type:'fact',icon:'&#128200;',title:'Impact Meting',text:'B-Corp bedrijven meten hun maatschappelijke impact met de B Impact Assessment. Dit is een uitgebreide tool die alle aspecten van het bedrijf onder de loep neemt.'},
-      {x:36,y:11,type:'coin'},
+      {x:36,y:10,type:'coin'},
       {x:43,y:7,type:'coin'},
       {x:48,y:5,type:'fact',icon:'&#129309;',title:'Ethisch Beleid',text:'Goed bestuur betekent ook: eerlijke lonen, geen discriminatie, en een veilige werkplek. Bij Driessen is dit verankerd in het beleid.'},
       {x:54,y:7,type:'coin'},
-      {x:58,y:11,type:'coin'},
+      {x:58,y:10,type:'coin'},
       {x:60,y:6,type:'coin'},
       {x:66,y:5,type:'fact',icon:'&#127942;',title:'Hercertificering',text:'Elke 3 jaar moet een B-Corp opnieuw gecertificeerd worden. Dit zorgt voor continue verbetering en houdt bedrijven scherp op hun impact.'},
       {x:71,y:7,type:'coin'},
@@ -641,7 +641,7 @@ const LEVELS = [
       {x:24,y:9,w:4,h:2},
       {x:30,y:7,w:3,h:2},
       {x:35,y:8,w:4,h:2},
-      {x:34,y:12,w:3,h:1},
+      {x:34,y:11,w:3,h:1},
       {x:41,y:6,w:3,h:2},
       {x:46,y:8,w:4,h:2},
       {x:52,y:7,w:3,h:2},
@@ -958,7 +958,7 @@ function updatePlayer() {
 
   // Gravity
   player.vy += GRAVITY;
-  if (player.vy > 14) player.vy = 14;
+  if (player.vy > 15) player.vy = 15;
 
   // Move X
   player.x += player.vx;
