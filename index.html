@@ -698,6 +698,149 @@ let levelFinish = {};
 let totalFacts = 0;
 let collectedSet = new Set();
 
+// Death freeze state
+let deathTimer = 0;
+const DEATH_FREEZE_FRAMES = 60; // ~1 second at 60fps
+
+// ========================
+// AUDIO SYSTEM (Web Audio API)
+// ========================
+let audioCtx = null;
+let musicGain = null;
+let sfxGain = null;
+let musicPlaying = false;
+let musicOscillators = [];
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Master gains
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = 0.12;
+    musicGain.connect(audioCtx.destination);
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = 0.25;
+    sfxGain.connect(audioCtx.destination);
+  } catch(e) {}
+}
+
+// Ensure audio starts on first user interaction
+function ensureAudio() {
+  if (!audioCtx) initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+document.addEventListener('click', ensureAudio, { once: false });
+document.addEventListener('touchstart', ensureAudio, { once: false });
+document.addEventListener('keydown', ensureAudio, { once: false });
+
+function playTone(freq, duration, type, gainNode, volume, detune) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.value = freq;
+  if (detune) osc.detune.value = detune;
+  g.gain.value = volume || 0.3;
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(g);
+  g.connect(gainNode || sfxGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+function sfxJump() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(250, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.12);
+  g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+  osc.connect(g);
+  g.connect(sfxGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.15);
+}
+
+function sfxCoin() {
+  if (!audioCtx) return;
+  playTone(988, 0.08, 'square', sfxGain, 0.2);
+  setTimeout(() => playTone(1319, 0.12, 'square', sfxGain, 0.2), 60);
+}
+
+function sfxFact() {
+  if (!audioCtx) return;
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((n, i) => {
+    setTimeout(() => playTone(n, 0.15, 'triangle', sfxGain, 0.2), i * 80);
+  });
+}
+
+function sfxDeath() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.4);
+  g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+  osc.connect(g);
+  g.connect(sfxGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.5);
+}
+
+function sfxLevelComplete() {
+  if (!audioCtx) return;
+  const notes = [523, 659, 784, 659, 784, 1047];
+  notes.forEach((n, i) => {
+    setTimeout(() => playTone(n, 0.2, 'triangle', sfxGain, 0.25), i * 120);
+  });
+}
+
+// Simple background music - gentle looping melody
+let musicInterval = null;
+function startMusic() {
+  if (!audioCtx || musicPlaying) return;
+  musicPlaying = true;
+  const scale = [262, 294, 330, 349, 392, 440, 494, 523]; // C major
+  // Melody patterns per level mood
+  const melodies = [
+    [0,2,4,5,4,2,3,1], // warm, hopeful
+    [0,4,3,5,2,4,1,3], // nature, flowing
+    [0,3,5,4,2,5,3,1], // steady, structured
+    [0,2,4,7,5,3,4,2], // uplifting, climactic
+  ];
+  const melody = melodies[currentLevel % melodies.length];
+  let step = 0;
+
+  function playNote() {
+    if (!musicPlaying || !audioCtx) return;
+    const noteIdx = melody[step % melody.length];
+    const freq = scale[noteIdx];
+    // Melody
+    playTone(freq * 2, 0.35, 'triangle', musicGain, 0.15);
+    // Bass (root note, lower octave)
+    if (step % 2 === 0) {
+      playTone(scale[melody[0]] * 0.5, 0.7, 'sine', musicGain, 0.1);
+    }
+    step++;
+  }
+
+  playNote();
+  musicInterval = setInterval(playNote, 400);
+}
+
+function stopMusic() {
+  musicPlaying = false;
+  if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+}
+
 // ========================
 // RESIZE
 // ========================
@@ -817,7 +960,11 @@ function startLevel(idx) {
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   document.getElementById('mobile-controls').style.display = isMobile ? 'block' : 'none';
 
+  deathTimer = 0;
   gameState = 'playing';
+  ensureAudio();
+  stopMusic();
+  startMusic();
 }
 
 function updateHUD() {
@@ -837,6 +984,7 @@ function togglePause() {
 }
 
 function quitToMenu() {
+  stopMusic();
   document.getElementById('pause-overlay').style.display = 'none';
   document.getElementById('level-complete').style.display = 'none';
   document.getElementById('hud').style.display = 'none';
@@ -949,11 +1097,13 @@ function updatePlayer() {
   if (keys.jump && player.onGround && !jumpPressed) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
+    sfxJump();
   }
   if (keys.jump && player.onGround) {
     player.vy = JUMP_FORCE;
     player.onGround = false;
     keys.jump = false;
+    sfxJump();
   }
 
   // Gravity
@@ -990,7 +1140,8 @@ function updatePlayer() {
 
   // Fall death
   if (player.y > H + 100) {
-    respawnPlayer();
+    startDeath();
+    return;
   }
 
   // Walk animation
@@ -1007,10 +1158,12 @@ function updatePlayer() {
       if (c.type === 'coin') {
         score += 10;
         spawnParticles(c.x, c.y, '#FFD700', 6);
+        sfxCoin();
       } else if (c.type === 'fact') {
         score += 25;
         factsCollected++;
         spawnParticles(c.x, c.y, LEVELS[currentLevel].color1, 10);
+        sfxFact();
         showKnowledge(c);
       }
       updateHUD();
@@ -1020,39 +1173,41 @@ function updatePlayer() {
   // Hazards
   for (const h of levelHazards) {
     if (rectOverlap(player.x, player.y, player.w, player.h, h.x, h.y, h.w, h.h)) {
-      respawnPlayer();
+      startDeath();
+      return;
     }
   }
 
   // Finish
-  const dx = (player.x + player.w/2) - (levelFinish.x + TILE/2);
-  const dy = (player.y + player.h/2) - (levelFinish.y + TILE/2);
-  if (Math.abs(dx) < TILE && Math.abs(dy) < TILE) {
+  const fdx = (player.x + player.w/2) - (levelFinish.x + TILE/2);
+  const fdy = (player.y + player.h/2) - (levelFinish.y + TILE/2);
+  if (Math.abs(fdx) < TILE && Math.abs(fdy) < TILE) {
+    sfxLevelComplete();
+    stopMusic();
     showLevelComplete();
   }
 }
 
+function startDeath() {
+  if (deathTimer > 0) return; // Already dying
+  deathTimer = DEATH_FREEZE_FRAMES;
+  player.alive = false;
+  player.vx = 0;
+  player.vy = 0;
+  spawnParticles(player.x + player.w/2, player.y + player.h/2, '#ff4444', 15);
+  sfxDeath();
+}
+
 function respawnPlayer() {
-  // Find last safe platform before player
-  let spawnX = 80;
-  let spawnY = 200;
-  const px = player.x;
-  for (const p of levelPlatforms) {
-    if (p.x + p.w/2 < px && p.x > spawnX - 80) {
-      spawnX = p.x + p.w/2 - player.w/2;
-      spawnY = p.y - player.h - 4;
-    }
-  }
-  // Default to start
   const lv = LEVELS[currentLevel];
-  spawnX = 80;
-  spawnY = lv.platforms[0].y * TILE - player.h - 4;
-  player.x = spawnX;
-  player.y = spawnY;
+  player.x = 80;
+  player.y = lv.platforms[0].y * TILE - player.h - 4;
   player.vx = 0;
   player.vy = 0;
   player.onGround = false;
-  spawnParticles(player.x + player.w/2, player.y + player.h/2, '#ff4444', 12);
+  player.alive = true;
+  deathTimer = 0;
+  spawnParticles(player.x + player.w/2, player.y + player.h/2, '#44aaff', 10);
 }
 
 function rectOverlap(x1,y1,w1,h1, x2,y2,w2,h2) {
@@ -1140,6 +1295,19 @@ function render() {
   drawParticles();
 
   ctx.restore();
+
+  // Death freeze overlay
+  if (deathTimer > 0) {
+    const progress = deathTimer / DEATH_FREEZE_FRAMES;
+    // Red vignette flash that fades
+    ctx.fillStyle = `rgba(180, 20, 20, ${progress * 0.35})`;
+    ctx.fillRect(0, 0, W, H);
+    // Screen shake effect via slight offset (already rendered, just overlay)
+    if (deathTimer > DEATH_FREEZE_FRAMES - 10) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${(deathTimer - DEATH_FREEZE_FRAMES + 10) * 0.06})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
 }
 
 function drawBgDecorations(lv) {
@@ -1307,87 +1475,283 @@ function drawPlayer(lv) {
   const walk = Math.sin(player.walkFrame * 4);
   const isWalking = Math.abs(player.vx) > 0.5;
   const isAir = !player.onGround;
+  const isDying = deathTimer > 0;
+  const blink = Math.floor(animFrame / 60) % 4 === 0 && Math.floor(animFrame % 60) < 4;
+
+  // Death flash effect
+  if (isDying) {
+    ctx.globalAlpha = 0.3 + Math.sin(deathTimer * 0.5) * 0.4;
+  }
 
   // Shadow
-  if (player.onGround) {
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  if (player.onGround && !isDying) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath();
-    ctx.ellipse(player.w/2, player.h + 2, 14, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.w/2, player.h + 2, 12, 3, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Body (Driessen orange shirt)
-  ctx.fillStyle = '#e87722';
-  roundRect(ctx, 4, 12, 22, 16, 4);
-  ctx.fill();
-
-  // Legs
+  // --- LEGS ---
   ctx.fillStyle = '#003366';
-  if (isWalking && !isAir) {
-    ctx.fillRect(6, 28, 7, 8 + walk * 2);
-    ctx.fillRect(17, 28, 7, 8 - walk * 2);
+  const legW = 7, legH = 9;
+  if (isWalking && !isAir && !isDying) {
+    // Left leg
+    ctx.save();
+    ctx.translate(8, 27);
+    ctx.rotate(walk * 0.35);
+    roundRect(ctx, -3, 0, legW, legH, 2); ctx.fill();
+    // Left shoe
+    ctx.fillStyle = '#222';
+    roundRect(ctx, -4, legH - 3, legW + 2, 4, 2); ctx.fill();
+    ctx.restore();
+    // Right leg
+    ctx.fillStyle = '#003366';
+    ctx.save();
+    ctx.translate(20, 27);
+    ctx.rotate(-walk * 0.35);
+    roundRect(ctx, -3, 0, legW, legH, 2); ctx.fill();
+    ctx.fillStyle = '#222';
+    roundRect(ctx, -4, legH - 3, legW + 2, 4, 2); ctx.fill();
+    ctx.restore();
   } else if (isAir) {
-    // Jumping pose
+    // Jump pose - legs bent
     ctx.save();
-    ctx.translate(10, 28);
-    ctx.rotate(-0.3);
-    ctx.fillRect(0, 0, 7, 8);
+    ctx.translate(8, 27);
+    ctx.rotate(-0.4);
+    roundRect(ctx, -3, 0, legW, legH - 1, 2); ctx.fill();
+    ctx.fillStyle = '#222';
+    roundRect(ctx, -4, legH - 4, legW + 2, 4, 2); ctx.fill();
     ctx.restore();
+    ctx.fillStyle = '#003366';
     ctx.save();
-    ctx.translate(17, 28);
-    ctx.rotate(0.3);
-    ctx.fillRect(0, 0, 7, 8);
+    ctx.translate(20, 27);
+    ctx.rotate(0.4);
+    roundRect(ctx, -3, 0, legW, legH - 1, 2); ctx.fill();
+    ctx.fillStyle = '#222';
+    roundRect(ctx, -4, legH - 4, legW + 2, 4, 2); ctx.fill();
     ctx.restore();
   } else {
-    ctx.fillRect(6, 28, 7, 8);
-    ctx.fillRect(17, 28, 7, 8);
+    // Standing
+    roundRect(ctx, 5, 27, legW, legH, 2); ctx.fill();
+    roundRect(ctx, 17, 27, legW, legH, 2); ctx.fill();
+    ctx.fillStyle = '#222';
+    roundRect(ctx, 4, 33, legW + 2, 4, 2); ctx.fill();
+    roundRect(ctx, 16, 33, legW + 2, 4, 2); ctx.fill();
   }
 
-  // Shoes
-  ctx.fillStyle = '#333';
-  if (isWalking && !isAir) {
-    ctx.fillRect(5, 35 + walk * 2, 9, 3);
-    ctx.fillRect(16, 35 - walk * 2, 9, 3);
-  } else {
-    ctx.fillRect(5, 35, 9, 3);
-    ctx.fillRect(16, 35, 9, 3);
-  }
-
-  // Head
-  ctx.fillStyle = '#FDBF60';
-  ctx.beginPath();
-  ctx.arc(15, 8, 10, 0, Math.PI * 2);
+  // --- BODY (Driessen orange polo) ---
+  const bodyGrad = ctx.createLinearGradient(4, 12, 4, 28);
+  bodyGrad.addColorStop(0, '#f08830');
+  bodyGrad.addColorStop(1, '#d06a18');
+  ctx.fillStyle = bodyGrad;
+  roundRect(ctx, 4, 13, 22, 15, 5);
   ctx.fill();
 
-  // Hair
-  ctx.fillStyle = '#5C3317';
+  // Polo collar
+  ctx.fillStyle = '#f5a050';
   ctx.beginPath();
-  ctx.arc(15, 5, 10, Math.PI, Math.PI * 2);
+  ctx.moveTo(10, 13);
+  ctx.lineTo(15, 16);
+  ctx.lineTo(20, 13);
+  ctx.lineTo(18, 12);
+  ctx.lineTo(15, 14);
+  ctx.lineTo(12, 12);
+  ctx.closePath();
+  ctx.fill();
+
+  // Shirt detail - subtle B-Corp badge
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath();
+  ctx.arc(22, 18, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#d06a18';
+  ctx.font = 'bold 5px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('B', 22, 18.5);
+
+  // --- BACK ARM (behind body) ---
+  ctx.fillStyle = '#d06a18';
+  if (isWalking && !isAir && !isDying) {
+    ctx.save();
+    ctx.translate(6, 15);
+    ctx.rotate(-walk * 0.5);
+    roundRect(ctx, -2, 0, 6, 12, 3); ctx.fill();
+    // Hand
+    ctx.fillStyle = '#F0B860';
+    ctx.beginPath();
+    ctx.arc(1, 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else if (isAir) {
+    ctx.save();
+    ctx.translate(6, 15);
+    ctx.rotate(0.6);
+    roundRect(ctx, -2, 0, 6, 11, 3); ctx.fill();
+    ctx.fillStyle = '#F0B860';
+    ctx.beginPath();
+    ctx.arc(1, 11, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- FRONT ARM ---
+  ctx.fillStyle = '#f08830';
+  if (isWalking && !isAir && !isDying) {
+    ctx.save();
+    ctx.translate(22, 15);
+    ctx.rotate(walk * 0.5);
+    roundRect(ctx, -2, 0, 6, 12, 3); ctx.fill();
+    ctx.fillStyle = '#FDBF60';
+    ctx.beginPath();
+    ctx.arc(1, 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else if (isAir) {
+    // Arms up when jumping
+    ctx.save();
+    ctx.translate(22, 14);
+    ctx.rotate(-0.8);
+    roundRect(ctx, -2, -2, 6, 12, 3); ctx.fill();
+    ctx.fillStyle = '#FDBF60';
+    ctx.beginPath();
+    ctx.arc(1, 9, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else {
+    // Idle arms
+    ctx.save();
+    ctx.translate(22, 15);
+    roundRect(ctx, -1, 0, 6, 11, 3); ctx.fill();
+    ctx.fillStyle = '#FDBF60';
+    ctx.beginPath();
+    ctx.arc(2, 11, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // --- HEAD ---
+  // Neck
+  ctx.fillStyle = '#F0B860';
+  ctx.fillRect(12, 9, 6, 5);
+
+  // Head shape
+  const headGrad = ctx.createRadialGradient(15, 6, 1, 15, 6, 11);
+  headGrad.addColorStop(0, '#FECE78');
+  headGrad.addColorStop(1, '#EDAA40');
+  ctx.fillStyle = headGrad;
+  ctx.beginPath();
+  ctx.ellipse(15, 5, 11, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hair - fuller, styled
+  ctx.fillStyle = '#4A2810';
+  ctx.beginPath();
+  ctx.ellipse(15, 2, 11.5, 8, 0, Math.PI * 0.85, Math.PI * 2.15);
+  ctx.fill();
+  // Side hair
+  ctx.beginPath();
+  ctx.ellipse(5, 4, 3, 6, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Hair detail
+  ctx.fillStyle = '#3A1E08';
+  ctx.beginPath();
+  ctx.ellipse(15, 0, 9, 5, 0, Math.PI * 0.9, Math.PI * 2.1);
+  ctx.fill();
+
+  // Ear
+  ctx.fillStyle = '#EDAA40';
+  ctx.beginPath();
+  ctx.ellipse(5, 6, 3, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#D09030';
+  ctx.beginPath();
+  ctx.ellipse(5.5, 6, 1.5, 2.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Eyes
-  ctx.fillStyle = '#333';
-  ctx.fillRect(18, 6, 3, 3);
-
-  // Smile
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(19, 10, 4, 0, Math.PI * 0.6);
-  ctx.stroke();
-
-  // Arm
-  ctx.fillStyle = '#e87722';
-  if (isWalking && !isAir) {
-    ctx.save();
-    ctx.translate(22, 14);
-    ctx.rotate(walk * 0.4);
-    ctx.fillRect(0, 0, 6, 12);
-    ctx.restore();
+  if (isDying) {
+    // X eyes when dying
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(16, 4); ctx.lineTo(19, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(19, 4); ctx.lineTo(16, 7); ctx.stroke();
+  } else if (blink) {
+    // Blink
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(16, 5.5);
+    ctx.lineTo(21, 5.5);
+    ctx.stroke();
   } else {
-    ctx.fillRect(22, 14, 6, 12);
+    // Eye white
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(18.5, 5.5, 4, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Iris
+    ctx.fillStyle = '#2962A0';
+    ctx.beginPath();
+    ctx.arc(19.5, 5.5, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Pupil
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(19.8, 5.5, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Eye shine
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(20.3, 4.5, 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    // Eyebrow
+    ctx.strokeStyle = '#3A1E08';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(15, isAir ? 1.5 : 2.5);
+    ctx.quadraticCurveTo(18, isAir ? 0 : 1.5, 22, isAir ? 1.5 : 2.5);
+    ctx.stroke();
   }
 
+  // Mouth
+  if (isDying) {
+    // O mouth
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.ellipse(19, 10, 2, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (isAir) {
+    // Excited open mouth
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.ellipse(19.5, 10, 2.5, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath();
+    ctx.ellipse(19.5, 10.3, 1.8, 1.2, 0, 0, Math.PI);
+    ctx.fill();
+  } else {
+    // Happy smile
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(18, 9, 4, 0.1, Math.PI * 0.6);
+    ctx.stroke();
+    // Cheek blush
+    ctx.fillStyle = 'rgba(255,120,80,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(22, 8, 3, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Nose (subtle)
+  ctx.fillStyle = '#EDAA40';
+  ctx.beginPath();
+  ctx.ellipse(21, 7, 1.2, 1, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -1423,8 +1787,16 @@ function gameLoop() {
   animFrame++;
 
   if (gameState === 'playing') {
-    updatePlayer();
-    updateParticles();
+    if (deathTimer > 0) {
+      deathTimer--;
+      updateParticles(); // Keep particles animating during freeze
+      if (deathTimer <= 0) {
+        respawnPlayer();
+      }
+    } else {
+      updatePlayer();
+      updateParticles();
+    }
   }
 
   render();
