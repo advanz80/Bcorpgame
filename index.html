@@ -414,6 +414,7 @@ canvas {
       <span class="hud-item" id="hud-level">Level 1</span>
     </div>
     <div class="hud-right">
+      <span class="hud-item">&#9200; <span id="hud-time">0:00</span></span>
       <span class="hud-item">&#11088; <span id="hud-score">0</span></span>
       <span class="hud-item">&#128218; <span id="hud-facts">0</span>/<span id="hud-facts-total">0</span></span>
     </div>
@@ -450,6 +451,7 @@ canvas {
   <div id="level-complete">
     <h2 id="lc-title">Level Compleet!</h2>
     <div class="stars" id="lc-stars">&#11088;&#11088;&#11088;</div>
+    <div id="lc-score-breakdown" style="color:rgba(255,255,255,0.85); font-size:0.85em; margin:8px 0 4px; line-height:1.7;"></div>
     <div class="summary" id="lc-summary"></div>
     <div class="btn-row">
       <button class="menu-btn" onclick="quitToMenu()">Menu</button>
@@ -501,6 +503,10 @@ let gameState = 'menu'; // menu, playing, paused, knowledge, levelcomplete, intr
 let currentLevel = 0;
 let score = 0;
 let factsCollected = 0;
+let levelStartTime = 0;
+let levelElapsed = 0;
+let pausedTimeAccum = 0;
+let pauseStartedAt = 0;
 let cameraX = 0;
 let animFrame = 0;
 let particles = [];
@@ -1136,6 +1142,8 @@ function startLevel(idx) {
   totalFacts = levelCollectibles.filter(c => c.type === 'fact').length;
   factsCollected = 0;
   score = 0;
+  levelStartTime = Date.now();
+  pausedTimeAccum = 0;
   collectedSet.clear();
   cameraX = 0;
   particles = [];
@@ -1155,18 +1163,32 @@ function startLevel(idx) {
   startMusic();
 }
 
+function getLevelElapsed() {
+  if (gameState === 'paused') return (pauseStartedAt - levelStartTime - pausedTimeAccum) / 1000;
+  return (Date.now() - levelStartTime - pausedTimeAccum) / 1000;
+}
+
+function formatTime(secs) {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
 function updateHUD() {
   document.getElementById('hud-score').textContent = score;
   document.getElementById('hud-facts').textContent = factsCollected;
   document.getElementById('hud-facts-total').textContent = totalFacts;
+  document.getElementById('hud-time').textContent = formatTime(getLevelElapsed());
 }
 
 function togglePause() {
   if (gameState === 'playing') {
     gameState = 'paused';
+    pauseStartedAt = Date.now();
     document.getElementById('pause-overlay').style.display = 'flex';
   } else if (gameState === 'paused') {
     gameState = 'playing';
+    pausedTimeAccum += Date.now() - pauseStartedAt;
     document.getElementById('pause-overlay').style.display = 'none';
   }
 }
@@ -1185,6 +1207,7 @@ function quitToMenu() {
 
 function showKnowledge(c) {
   gameState = 'knowledge';
+  pauseStartedAt = Date.now();
   document.getElementById('knowledge-popup').style.display = 'block';
   document.getElementById('kp-title').innerHTML = c.icon + ' ' + c.title;
   document.getElementById('kp-text').textContent = c.text;
@@ -1193,6 +1216,7 @@ function showKnowledge(c) {
 function closeKnowledge() {
   document.getElementById('knowledge-popup').style.display = 'none';
   if (document.getElementById('start-screen').classList.contains('hidden')) {
+    pausedTimeAccum += Date.now() - pauseStartedAt;
     gameState = 'playing';
   }
 }
@@ -1208,6 +1232,12 @@ function showLevelComplete() {
   if (factRatio >= 0.6) stars = 2;
   if (factRatio >= 1.0) stars = 3;
 
+  // Calculate time bonus: max 100 points, decreasing over time
+  // Full bonus under 30s, zero bonus after 180s
+  levelElapsed = getLevelElapsed();
+  const timeBonus = Math.max(0, Math.round(100 * (1 - (levelElapsed - 30) / 150)));
+  score += timeBonus;
+
   if (stars > levelStars[currentLevel]) levelStars[currentLevel] = stars;
   if (currentLevel + 1 < LEVELS.length) unlockedLevels[currentLevel + 1] = true;
   totalGameScore += score;
@@ -1217,6 +1247,12 @@ function showLevelComplete() {
   const isLastLevel = currentLevel === LEVELS.length - 1;
   document.getElementById('lc-title').textContent = isLastLevel ? 'Alle Levels Voltooid!' : 'Level Compleet!';
   document.getElementById('lc-stars').innerHTML = starStr;
+
+  // Score breakdown
+  const collectScore = score - timeBonus;
+  document.getElementById('lc-score-breakdown').innerHTML =
+    '&#128176; Verzameld: ' + collectScore + ' pt &nbsp;|&nbsp; &#9200; Tijd (' + formatTime(levelElapsed) + '): +' + timeBonus + ' pt &nbsp;|&nbsp; <b>Totaal: ' + score + ' pt</b>';
+
   document.getElementById('lc-summary').textContent = lv.completeSummary;
 
   const nextBtn = document.getElementById('lc-next');
@@ -2846,6 +2882,8 @@ function gameLoop() {
       updatePlayer();
       updateParticles();
     }
+    // Update timer in HUD every frame
+    document.getElementById('hud-time').textContent = formatTime(getLevelElapsed());
   }
 
   render();
