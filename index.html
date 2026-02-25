@@ -345,6 +345,19 @@ canvas {
 }
 .char-card .char-preview { font-size: 3em; margin-bottom: 8px; line-height: 1; }
 .char-card .char-name { font-size: 0.95em; font-weight: 700; }
+.hs-entry {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; margin: 4px 0; border-radius: 8px;
+  background: rgba(255,255,255,0.06); color: #fff; font-size: 0.9em;
+}
+.hs-entry:nth-child(1) { background: rgba(255,215,0,0.15); }
+.hs-entry:nth-child(2) { background: rgba(192,192,192,0.12); }
+.hs-entry:nth-child(3) { background: rgba(205,127,50,0.12); }
+.hs-rank { color: #e87722; font-weight: bold; min-width: 28px; }
+.hs-name { flex: 1; text-align: left; margin-left: 8px; }
+.hs-score { color: #f5a030; font-weight: bold; }
+.hs-new { animation: hs-glow 1s ease-in-out infinite alternate; }
+@keyframes hs-glow { from { background: rgba(232,119,34,0.15); } to { background: rgba(232,119,34,0.35); } }
 </style>
 </head>
 <body>
@@ -360,6 +373,7 @@ canvas {
     </div>
     <button class="start-btn" onclick="showLevelSelect()">Speel Nu!</button>
     <button class="menu-btn" onclick="showInfo()">Wat is B-Corp?</button>
+    <button class="menu-btn" onclick="viewHighScores()">&#127942; Hall of Fame</button>
   </div>
 
   <!-- CHARACTER SELECT -->
@@ -376,8 +390,8 @@ canvas {
         <div class="char-name">Collega</div>
       </div>
       <div class="char-card" onclick="selectCharacter('driessen')">
-        <div class="char-preview">&#127775;</div>
-        <div class="char-name">Driessen</div>
+        <div class="char-preview">&#129418;</div>
+        <div class="char-name">Vosje</div>
       </div>
     </div>
     <button class="menu-btn" style="margin-top:16px;" onclick="showStart()">&#8592; Terug</button>
@@ -440,6 +454,24 @@ canvas {
     <div class="btn-row">
       <button class="menu-btn" onclick="quitToMenu()">Menu</button>
       <button class="start-btn" id="lc-next" onclick="nextLevel()">Volgend Level &#9654;</button>
+    </div>
+  </div>
+
+  <!-- High Score Screen -->
+  <div id="highscore-screen" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(10,22,40,0.95); flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:linear-gradient(135deg,#1a2a4a,#0d1b30); border-radius:18px; padding:28px 24px; max-width:400px; width:90%; text-align:center; border:2px solid rgba(232,119,34,0.4); box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+      <h2 style="color:#e87722; margin-bottom:4px; font-size:1.5em;">&#127942; Uitgespeeld!</h2>
+      <p style="color:rgba(255,255,255,0.7); margin-bottom:16px; font-size:0.85em;">Voer je naam in voor de Hall of Fame</p>
+      <div id="hs-input-area">
+        <input type="text" id="hs-name" maxlength="20" placeholder="Jouw naam..." style="width:80%; padding:10px 14px; border-radius:10px; border:2px solid #e87722; background:#0d1b30; color:#fff; font-size:1em; text-align:center; outline:none; margin-bottom:12px;">
+        <div id="hs-total-score" style="color:#f5a030; font-size:1.1em; margin-bottom:12px;"></div>
+        <button class="start-btn" onclick="submitHighScore()" style="margin-bottom:10px;">Opslaan &#128190;</button>
+      </div>
+      <div id="hs-list-area" style="display:none;">
+        <h3 style="color:#e87722; margin-bottom:10px;">&#127942; Hall of Fame</h3>
+        <div id="hs-list" style="max-height:250px; overflow-y:auto; margin-bottom:14px;"></div>
+      </div>
+      <button class="menu-btn" onclick="closeHighScore()">Terug naar Menu</button>
     </div>
   </div>
 
@@ -703,7 +735,7 @@ const LEVELS = [
     bgColor1: "#1a0a2e",
     bgColor2: "#2b1145",
     introText: "Het laatste level! Hier draait alles om jouw persoonlijke impact. Als medewerker van Driessen Groep maak jij elke dag het verschil. Ontdek concrete tips hoe jij kunt bijdragen!",
-    completeSummary: "Gefeliciteerd! Je hebt alle levels voltooid! Onthoud: B-Corp zijn we samen. Door bewuste keuzes te maken, klanten te inspireren en lief te zijn voor elkaar, maak jij elke dag het verschil. B Kind, B Driessen, B Corp!",
+    completeSummary: "Gefeliciteerd! Je hebt alle levels voltooid! Onthoud: B-Corp zijn we samen. Door bewuste keuzes te maken, klanten te inspireren en een beetje aardig voor elkaar te zijn, maak jij elke dag het verschil. B Kind, B Driessen, B Corp!",
     platforms: [
       {x:0,y:10,w:6,h:2},
       {x:8,y:9,w:3,h:2},
@@ -742,7 +774,7 @@ const LEVELS = [
       {x:52,y:10,type:'fact',icon:'&#129309;',title:'Samen Sterker',text:'De B-Corp community telt meer dan 7.000 bedrijven wereldwijd. People using business as a force for good! Samen laten we zien dat het anders kan. En jij bent daar onderdeel van.'},
       {x:58,y:7,type:'coin'},
       {x:64,y:5,type:'coin'},
-      {x:69,y:7,type:'fact',icon:'&#127775;',title:'Jouw Rol als Ambassadeur',text:'Als medewerker van Driessen Groep ben jij ambassadeur van B-Corp waarden. Door mensen aan waardevol werk te helpen, bewust in te kopen, klanten te inspireren en lief te zijn voor elkaar - maak jij elke dag het verschil!'},
+      {x:69,y:7,type:'fact',icon:'&#127775;',title:'Jouw Rol als Ambassadeur',text:'Als medewerker van Driessen Groep ben jij ambassadeur van B-Corp waarden. Door mensen aan waardevol werk te helpen, bewust in te kopen, klanten te inspireren en een beetje aardig voor elkaar te zijn - maak jij elke dag het verschil!'},
       {x:76,y:6,type:'coin'},
       {x:83,y:8,type:'coin'}
     ],
@@ -876,42 +908,91 @@ function sfxLevelComplete() {
   });
 }
 
-// Simple background music - gentle looping melody
+// Per-level background music - each level has a unique feel
 let musicInterval = null;
+let musicInterval2 = null;
 function startMusic() {
   if (!audioCtx || musicPlaying) return;
   musicPlaying = true;
-  const scale = [262, 294, 330, 349, 392, 440, 494, 523]; // C major
-  // Melody patterns per level mood
-  const melodies = [
-    [0,2,4,5,4,2,3,1], // warm, hopeful
-    [0,4,3,5,2,4,1,3], // nature, flowing
-    [0,3,5,4,2,5,3,1], // steady, structured
-    [0,2,4,7,5,3,4,2], // uplifting, climactic
-  ];
-  const melody = melodies[currentLevel % melodies.length];
-  let step = 0;
 
-  function playNote() {
+  const levelMusic = [
+    { // Level 1: Social/Work - warm, upbeat major key
+      scale: [262, 294, 330, 349, 392, 440, 494, 523],
+      melody: [0,2,4,5,4,2,3,5,7,5,4,2,0,2,4,3],
+      bass: [0,0,4,4,3,3,5,5],
+      tempo: 320,
+      wave: 'triangle',
+      bassWave: 'sine',
+      vol: 0.15,
+      bassVol: 0.10
+    },
+    { // Level 2: Green/Nature - pentatonic, gentle, nature sounds
+      scale: [196, 220, 262, 294, 330, 392, 440, 523],
+      melody: [2,4,5,7,5,4,2,0,2,4,7,5,4,2,0,2],
+      bass: [0,0,2,2,4,4,2,2],
+      tempo: 480,
+      wave: 'sine',
+      bassWave: 'sine',
+      vol: 0.12,
+      bassVol: 0.08
+    },
+    { // Level 3: Governance - structured, minor key, march-like
+      scale: [220, 247, 262, 294, 330, 349, 415, 440],
+      melody: [0,2,4,6,4,2,0,3,5,7,5,3,0,4,2,0],
+      bass: [0,0,0,4,4,4,3,3],
+      tempo: 380,
+      wave: 'square',
+      bassWave: 'triangle',
+      vol: 0.08,
+      bassVol: 0.06
+    },
+    { // Level 4: Community - triumphant, bright, celebratory
+      scale: [294, 330, 370, 392, 440, 494, 554, 587],
+      melody: [0,2,4,7,5,7,4,2,0,4,7,5,2,4,5,7],
+      bass: [0,0,4,4,2,2,5,5],
+      tempo: 280,
+      wave: 'triangle',
+      bassWave: 'sine',
+      vol: 0.14,
+      bassVol: 0.10
+    }
+  ];
+
+  const lm = levelMusic[currentLevel % levelMusic.length];
+  let step = 0;
+  let bassStep = 0;
+
+  function playMelodyNote() {
     if (!musicPlaying || !audioCtx) return;
-    const noteIdx = melody[step % melody.length];
-    const freq = scale[noteIdx];
-    // Melody
-    playTone(freq * 2, 0.35, 'triangle', musicGain, 0.15);
-    // Bass (root note, lower octave)
-    if (step % 2 === 0) {
-      playTone(scale[melody[0]] * 0.5, 0.7, 'sine', musicGain, 0.1);
+    const noteIdx = lm.melody[step % lm.melody.length];
+    const freq = lm.scale[noteIdx % lm.scale.length];
+    playTone(freq * 2, lm.tempo / 1000 * 0.8, lm.wave, musicGain, lm.vol);
+    // Harmony note (third above, softer)
+    if (step % 4 === 0) {
+      const harmIdx = (noteIdx + 2) % lm.scale.length;
+      playTone(lm.scale[harmIdx] * 2, lm.tempo / 1000 * 1.5, 'sine', musicGain, lm.vol * 0.4);
     }
     step++;
   }
 
-  playNote();
-  musicInterval = setInterval(playNote, 400);
+  function playBassNote() {
+    if (!musicPlaying || !audioCtx) return;
+    const noteIdx = lm.bass[bassStep % lm.bass.length];
+    const freq = lm.scale[noteIdx % lm.scale.length];
+    playTone(freq * 0.5, lm.tempo / 1000 * 1.8, lm.bassWave, musicGain, lm.bassVol);
+    bassStep++;
+  }
+
+  playMelodyNote();
+  playBassNote();
+  musicInterval = setInterval(playMelodyNote, lm.tempo);
+  musicInterval2 = setInterval(playBassNote, lm.tempo * 2);
 }
 
 function stopMusic() {
   musicPlaying = false;
   if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+  if (musicInterval2) { clearInterval(musicInterval2); musicInterval2 = null; }
 }
 
 // ========================
@@ -929,6 +1010,7 @@ resize();
 // ========================
 function showStart() {
   gameState = 'menu';
+  totalGameScore = 0;
   document.getElementById('start-screen').classList.remove('hidden');
   document.getElementById('char-screen').classList.add('hidden');
   document.getElementById('level-screen').classList.add('hidden');
@@ -937,6 +1019,7 @@ function showStart() {
   document.getElementById('level-complete').style.display = 'none';
   document.getElementById('pause-overlay').style.display = 'none';
   document.getElementById('level-intro').style.display = 'none';
+  document.getElementById('highscore-screen').style.display = 'none';
 }
 
 function showInfo() {
@@ -1114,6 +1197,9 @@ function closeKnowledge() {
   }
 }
 
+// Track total score across all levels
+let totalGameScore = 0;
+
 function showLevelComplete() {
   gameState = 'levelcomplete';
   const lv = LEVELS[currentLevel];
@@ -1124,19 +1210,28 @@ function showLevelComplete() {
 
   if (stars > levelStars[currentLevel]) levelStars[currentLevel] = stars;
   if (currentLevel + 1 < LEVELS.length) unlockedLevels[currentLevel + 1] = true;
+  totalGameScore += score;
   saveProgress();
 
   const starStr = '&#11088;'.repeat(stars) + '&#9734;'.repeat(3 - stars);
-  document.getElementById('lc-title').textContent = currentLevel === 3 ? 'Alle Levels Voltooid!' : 'Level Compleet!';
+  const isLastLevel = currentLevel === LEVELS.length - 1;
+  document.getElementById('lc-title').textContent = isLastLevel ? 'Alle Levels Voltooid!' : 'Level Compleet!';
   document.getElementById('lc-stars').innerHTML = starStr;
   document.getElementById('lc-summary').textContent = lv.completeSummary;
 
   const nextBtn = document.getElementById('lc-next');
-  if (currentLevel < LEVELS.length - 1) {
+  if (isLastLevel) {
+    // Show high score button instead of next level
+    nextBtn.style.display = 'inline-block';
+    nextBtn.textContent = '🏆 Hall of Fame';
+    nextBtn.onclick = function() {
+      document.getElementById('level-complete').style.display = 'none';
+      showHighScoreInput();
+    };
+  } else {
     nextBtn.style.display = 'inline-block';
     nextBtn.textContent = 'Volgend Level ▶';
-  } else {
-    nextBtn.style.display = 'none';
+    nextBtn.onclick = function() { nextLevel(); };
   }
 
   document.getElementById('level-complete').style.display = 'flex';
@@ -1147,6 +1242,95 @@ function nextLevel() {
   if (currentLevel < LEVELS.length - 1) {
     showLevelIntro(currentLevel + 1);
   }
+}
+
+// === HIGH SCORE SYSTEM ===
+function getHighScores() {
+  try {
+    return JSON.parse(localStorage.getItem('bcorp_highscores')) || [];
+  } catch(e) { return []; }
+}
+
+function saveHighScores(scores) {
+  try {
+    localStorage.setItem('bcorp_highscores', JSON.stringify(scores));
+  } catch(e) {}
+}
+
+function showHighScoreInput() {
+  const screen = document.getElementById('highscore-screen');
+  screen.style.display = 'flex';
+  document.getElementById('hs-input-area').style.display = 'block';
+  document.getElementById('hs-list-area').style.display = 'none';
+
+  const totalStars = levelStars.reduce((a, b) => a + b, 0);
+  document.getElementById('hs-total-score').innerHTML =
+    '&#11088; ' + totalStars + '/12 sterren &nbsp;&bull;&nbsp; ' + totalGameScore + ' punten';
+
+  const nameInput = document.getElementById('hs-name');
+  nameInput.value = '';
+  setTimeout(() => nameInput.focus(), 100);
+}
+
+function submitHighScore() {
+  const name = document.getElementById('hs-name').value.trim();
+  if (!name) {
+    document.getElementById('hs-name').style.borderColor = '#ff4444';
+    setTimeout(() => document.getElementById('hs-name').style.borderColor = '#e87722', 1000);
+    return;
+  }
+
+  const totalStars = levelStars.reduce((a, b) => a + b, 0);
+  const scores = getHighScores();
+  const newEntry = {
+    name: name,
+    score: totalGameScore,
+    stars: totalStars,
+    character: selectedChar,
+    date: new Date().toLocaleDateString('nl-NL')
+  };
+  scores.push(newEntry);
+  scores.sort((a, b) => b.stars - a.stars || b.score - a.score);
+  saveHighScores(scores);
+
+  document.getElementById('hs-input-area').style.display = 'none';
+  document.getElementById('hs-list-area').style.display = 'block';
+  renderHighScores(name);
+}
+
+function renderHighScores(highlightName) {
+  const scores = getHighScores();
+  const list = document.getElementById('hs-list');
+
+  if (scores.length === 0) {
+    list.innerHTML = '<p style="color:rgba(255,255,255,0.5); padding:20px;">Nog geen scores!</p>';
+    return;
+  }
+
+  const charEmoji = { man: '👨', vrouw: '👩', driessen: '🦊' };
+  list.innerHTML = scores.map((s, i) => {
+    const isNew = highlightName && s.name === highlightName;
+    const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+    return `<div class="hs-entry${isNew ? ' hs-new' : ''}">
+      <span class="hs-rank">${rankIcon}</span>
+      <span class="hs-name">${charEmoji[s.character] || '👤'} ${s.name}</span>
+      <span class="hs-score">${'⭐'.repeat(s.stars)} ${s.score}pt</span>
+    </div>`;
+  }).join('');
+}
+
+function closeHighScore() {
+  document.getElementById('highscore-screen').style.display = 'none';
+  totalGameScore = 0;
+  showStart();
+}
+
+function viewHighScores() {
+  const screen = document.getElementById('highscore-screen');
+  screen.style.display = 'flex';
+  document.getElementById('hs-input-area').style.display = 'none';
+  document.getElementById('hs-list-area').style.display = 'block';
+  renderHighScores(null);
 }
 
 // ========================
@@ -1907,6 +2091,246 @@ function drawFinish(lv) {
   ctx.fill();
 }
 
+function drawDriessenFox(px, py, f, walk, isWalking, isAir, isDying, blink) {
+  // Shadow
+  if (player.onGround && !isDying) {
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath();
+    ctx.ellipse(15, player.h + 2, 12, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- TAIL (behind body) ---
+  ctx.save();
+  const tailWag = isWalking ? Math.sin(walk * 6) * 0.3 : Math.sin(animFrame * 0.03) * 0.1;
+  ctx.translate(2, 18);
+  ctx.rotate(-0.6 + tailWag);
+  // Main tail
+  ctx.fillStyle = '#e87722';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-12, -6, -10, -18);
+  ctx.quadraticCurveTo(-8, -22, -4, -18);
+  ctx.quadraticCurveTo(-2, -10, 0, 0);
+  ctx.fill();
+  // White tail tip
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.ellipse(-7, -18, 4, 4, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // --- LEGS ---
+  ctx.fillStyle = '#8B4513';
+  const legW = 5, legH = 7;
+  if (isWalking && !isAir && !isDying) {
+    ctx.save();
+    ctx.translate(8, 28);
+    ctx.rotate(walk * 0.4);
+    roundRect(ctx, -2, 0, legW, legH, 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#8B4513';
+    ctx.save();
+    ctx.translate(20, 28);
+    ctx.rotate(-walk * 0.4);
+    roundRect(ctx, -2, 0, legW, legH, 2); ctx.fill();
+    ctx.restore();
+  } else if (isAir) {
+    ctx.save();
+    ctx.translate(8, 28);
+    ctx.rotate(-0.35);
+    roundRect(ctx, -2, 0, legW, legH - 1, 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#8B4513';
+    ctx.save();
+    ctx.translate(20, 28);
+    ctx.rotate(0.35);
+    roundRect(ctx, -2, 0, legW, legH - 1, 2); ctx.fill();
+    ctx.restore();
+  } else {
+    roundRect(ctx, 6, 28, legW, legH, 2); ctx.fill();
+    roundRect(ctx, 18, 28, legW, legH, 2); ctx.fill();
+  }
+
+  // --- BODY ---
+  // Orange fur body
+  const bodyGrad = ctx.createRadialGradient(15, 20, 2, 15, 20, 14);
+  bodyGrad.addColorStop(0, '#f5a030');
+  bodyGrad.addColorStop(1, '#e87722');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(15, 20, 12, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // White belly
+  ctx.fillStyle = '#FFF5E6';
+  ctx.beginPath();
+  ctx.ellipse(17, 22, 7, 7, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- HEAD ---
+  // Orange head
+  const headGrad = ctx.createRadialGradient(15, 6, 2, 15, 6, 12);
+  headGrad.addColorStop(0, '#f5a030');
+  headGrad.addColorStop(1, '#e87722');
+  ctx.fillStyle = headGrad;
+  ctx.beginPath();
+  ctx.ellipse(15, 6, 12, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // White face/cheeks
+  ctx.fillStyle = '#FFF5E6';
+  ctx.beginPath();
+  ctx.ellipse(17, 9, 8, 6, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- EARS ---
+  // Left ear (pointy triangle)
+  ctx.fillStyle = '#e87722';
+  ctx.beginPath();
+  ctx.moveTo(5, 2);
+  ctx.lineTo(1, -10);
+  ctx.lineTo(11, -1);
+  ctx.closePath();
+  ctx.fill();
+  // Left ear inner (pink)
+  ctx.fillStyle = '#FFB6C1';
+  ctx.beginPath();
+  ctx.moveTo(5.5, 0);
+  ctx.lineTo(3, -7);
+  ctx.lineTo(9, -1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Right ear
+  ctx.fillStyle = '#e87722';
+  ctx.beginPath();
+  ctx.moveTo(24, 1);
+  ctx.lineTo(26, -10);
+  ctx.lineTo(29, 0);
+  ctx.closePath();
+  ctx.fill();
+  // Right ear inner
+  ctx.fillStyle = '#FFB6C1';
+  ctx.beginPath();
+  ctx.moveTo(24.5, -0.5);
+  ctx.lineTo(26, -7);
+  ctx.lineTo(28, -0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  // === EYES ===
+  if (isDying) {
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(10, 3); ctx.lineTo(13, 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(13, 3); ctx.lineTo(10, 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(19, 3); ctx.lineTo(22, 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(22, 3); ctx.lineTo(19, 6); ctx.stroke();
+  } else if (blink) {
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(9, 4.5); ctx.lineTo(14, 4.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(19, 4.5); ctx.lineTo(24, 4.5); ctx.stroke();
+  } else {
+    // Left eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(11, 4, 3.5, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2E8B57';
+    ctx.beginPath();
+    ctx.arc(12, 4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(12.3, 4, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(12.8, 3, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Right eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.ellipse(21, 4, 3.5, 3.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2E8B57';
+    ctx.beginPath();
+    ctx.arc(22, 4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(22.3, 4, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(22.8, 3, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // --- NOSE ---
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.ellipse(17, 8, 2.5, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Nose shine
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(17.5, 7.3, 1, 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- MOUTH ---
+  if (isDying) {
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.ellipse(17, 12, 2, 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (isAir) {
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.ellipse(17, 11, 2, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#FF6B6B';
+    ctx.beginPath();
+    ctx.ellipse(17, 11.3, 1.3, 0.8, 0, 0, Math.PI);
+    ctx.fill();
+  } else {
+    // Cute W-shaped fox mouth
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(14, 10);
+    ctx.quadraticCurveTo(15.5, 12, 17, 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(17, 10);
+    ctx.quadraticCurveTo(18.5, 12, 20, 10);
+    ctx.stroke();
+  }
+
+  // Whiskers
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 0.8;
+  // Left whiskers
+  ctx.beginPath(); ctx.moveTo(8, 8); ctx.lineTo(-1, 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, 9.5); ctx.lineTo(-1, 10); ctx.stroke();
+  // Right whiskers
+  ctx.beginPath(); ctx.moveTo(25, 8); ctx.lineTo(32, 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(25, 9.5); ctx.lineTo(32, 10); ctx.stroke();
+
+  // Driessen "D" badge on chest
+  ctx.fillStyle = 'rgba(0,51,102,0.5)';
+  ctx.beginPath();
+  ctx.arc(17, 21, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 4px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('D', 17, 21.5);
+}
+
 function drawPlayer(lv) {
   const px = player.x;
   const py = player.y;
@@ -1924,9 +2348,18 @@ function drawPlayer(lv) {
   const isDying = deathTimer > 0;
   const blink = Math.floor(animFrame / 60) % 4 === 0 && Math.floor(animFrame % 60) < 4;
 
+  // Fox character: completely different sprite
+  if (charType === 'driessen') {
+    if (isDying) ctx.globalAlpha = 0.3 + Math.sin(deathTimer * 0.5) * 0.4;
+    drawDriessenFox(px, py, f, walk, isWalking, isAir, isDying, blink);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    return;
+  }
+
   // Character config
   const isVrouw = charType === 'vrouw';
-  const isDriessen = charType === 'driessen';
+  const isDriessen = false;
   const hairColor1 = isVrouw ? '#C8841A' : isDriessen ? '#4A2810' : '#4A2810';
   const hairColor2 = isVrouw ? '#A06810' : isDriessen ? '#3A1E08' : '#3A1E08';
   const shirtColor1 = isDriessen ? '#003366' : '#f08830';
