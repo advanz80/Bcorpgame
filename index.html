@@ -598,7 +598,7 @@ const LEVELS = [
       {x:62,y:7,type:'coin'},
       {x:68,y:5,type:'coin'},
       {x:75,y:7,type:'coin'},
-      {x:74,y:10,type:'fact',icon:'&#128170;',title:'De Kracht van Werk',text:'Door mensen te verbinden met werk creëren we een positieve impact die verder gaat dan de werkplek. Dat voelen onze klanten, hun medewerkers, en de hele gemeenschap.'},
+      {x:75,y:7,type:'fact',icon:'&#128170;',title:'De Kracht van Werk',text:'Door mensen te verbinden met werk creëren we een positieve impact die verder gaat dan de werkplek. Dat voelen onze klanten, hun medewerkers, en de hele gemeenschap.'},
       {x:83,y:8,type:'coin'}
     ],
     hazards: [
@@ -652,7 +652,7 @@ const LEVELS = [
       {x:36,y:7,type:'coin'},
       {x:42,y:5,type:'fact',icon:'&#127758;',title:'CO2 Voetafdruk',text:'Elke organisatie heeft een ecologische voetafdruk. B-Corp certificering helpt bedrijven deze te meten en te verkleinen. Kennis is de eerste stap naar verbetering!'},
       {x:48,y:7,type:'coin'},
-      {x:46,y:10,type:'coin'},
+      {x:47,y:7,type:'coin'},
       {x:54,y:6,type:'fact',icon:'&#128166;',title:'Waterverbruik',text:'Water is kostbaar. B-Corp bedrijven letten op hun waterverbruik en zoeken naar manieren om zuiniger om te gaan met deze belangrijke hulpbron.'},
       {x:60,y:8,type:'coin'},
       {x:66,y:6,type:'coin'},
@@ -773,7 +773,7 @@ const LEVELS = [
       {x:25,y:7,type:'coin'},
       {x:31,y:5,type:'fact',icon:'&#128155;',title:'B Kind!',text:'B-Corps zijn vooral ook bedrijven waar gewoon leuke mensen werken die graag met elkaar samenwerken. En dat begint bij jezelf! Hoe sta jij in contact met je collega\'s? Een glimlach, een compliment, even helpen - het maakt het verschil.'},
       {x:36,y:6,type:'coin'},
-      {x:35,y:11,type:'coin'},
+      {x:35,y:6,type:'coin'},
       {x:42,y:4,type:'fact',icon:'&#127760;',title:'Lokale Impact',text:'Driessen Groep investeert in lokale gemeenschappen door werkgelegenheid te creëren en maatschappelijke initiatieven te steunen. Jij kunt ook bijdragen: denk aan vrijwilligerswerk of lokale acties.'},
       {x:47,y:6,type:'coin'},
       {x:53,y:5,type:'coin'},
@@ -1126,12 +1126,19 @@ function startLevel(idx) {
     x: p.x * TILE, y: p.y * TILE,
     w: p.w * TILE, h: p.h * TILE
   }));
-  levelCollectibles = lv.collectibles.map((c, ci) => ({
-    x: c.x * TILE + TILE/2, y: c.y * TILE + TILE/2,
-    type: c.type, icon: c.icon || '',
-    title: c.title || '', text: c.text || '',
-    collected: false, id: ci
-  }));
+  levelCollectibles = lv.collectibles.map((c, ci) => {
+    let cy = c.y;
+    // Push collectibles out of platforms if overlapping
+    for (const p of lv.platforms) {
+      if (c.x + 0.5 > p.x && c.x + 0.5 < p.x + p.w && cy + 0.5 > p.y && cy + 0.5 < p.y + p.h) {
+        cy = p.y - 1;
+      }
+    }
+    return { x: c.x * TILE + TILE/2, y: cy * TILE + TILE/2,
+      type: c.type, icon: c.icon || '',
+      title: c.title || '', text: c.text || '',
+      collected: false, id: ci };
+  });
   levelHazards = lv.hazards.map(h => ({
     x: h.x * TILE, y: h.y * TILE,
     w: h.w * TILE, h: TILE,
@@ -1280,17 +1287,39 @@ function nextLevel() {
   }
 }
 
-// === HIGH SCORE SYSTEM ===
-function getHighScores() {
+// === HIGH SCORE SYSTEM (Server API + localStorage fallback) ===
+const HS_API = '/api/highscores';
+
+async function fetchHighScores() {
   try {
-    return JSON.parse(localStorage.getItem('bcorp_highscores')) || [];
-  } catch(e) { return []; }
+    const res = await fetch(HS_API);
+    if (res.ok) return await res.json();
+  } catch(e) {}
+  try { return JSON.parse(localStorage.getItem('bcorp_highscores')) || []; } catch(e) { return []; }
 }
 
-function saveHighScores(scores) {
+async function postHighScore(entry) {
   try {
-    localStorage.setItem('bcorp_highscores', JSON.stringify(scores));
+    const res = await fetch(HS_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Also cache locally
+      try { localStorage.setItem('bcorp_highscores', JSON.stringify(data.scores)); } catch(e) {}
+      return data.scores || [];
+    }
   } catch(e) {}
+  // Fallback: save locally
+  try {
+    const scores = JSON.parse(localStorage.getItem('bcorp_highscores')) || [];
+    scores.push(entry);
+    scores.sort((a, b) => b.stars - a.stars || b.score - a.score);
+    localStorage.setItem('bcorp_highscores', JSON.stringify(scores));
+    return scores;
+  } catch(e) { return [entry]; }
 }
 
 function showHighScoreInput() {
@@ -1308,7 +1337,7 @@ function showHighScoreInput() {
   setTimeout(() => nameInput.focus(), 100);
 }
 
-function submitHighScore() {
+async function submitHighScore() {
   const name = document.getElementById('hs-name').value.trim();
   if (!name) {
     document.getElementById('hs-name').style.borderColor = '#ff4444';
@@ -1317,7 +1346,6 @@ function submitHighScore() {
   }
 
   const totalStars = levelStars.reduce((a, b) => a + b, 0);
-  const scores = getHighScores();
   const newEntry = {
     name: name,
     score: totalGameScore,
@@ -1325,32 +1353,30 @@ function submitHighScore() {
     character: selectedChar,
     date: new Date().toLocaleDateString('nl-NL')
   };
-  scores.push(newEntry);
-  scores.sort((a, b) => b.stars - a.stars || b.score - a.score);
-  saveHighScores(scores);
+
+  const scores = await postHighScore(newEntry);
 
   document.getElementById('hs-input-area').style.display = 'none';
   document.getElementById('hs-list-area').style.display = 'block';
-  renderHighScores(name);
+  renderHighScoreList(scores, name);
 }
 
-function renderHighScores(highlightName) {
-  const scores = getHighScores();
+function renderHighScoreList(scores, highlightName) {
   const list = document.getElementById('hs-list');
 
-  if (scores.length === 0) {
+  if (!scores || scores.length === 0) {
     list.innerHTML = '<p style="color:rgba(255,255,255,0.5); padding:20px;">Nog geen scores!</p>';
     return;
   }
 
-  const charEmoji = { man: '👨', vrouw: '👩', driessen: '🦊' };
+  const charEmoji = { man: '\u{1f468}', vrouw: '\u{1f469}', driessen: '\u{1f98a}' };
   list.innerHTML = scores.map((s, i) => {
     const isNew = highlightName && s.name === highlightName;
-    const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+    const rankIcon = i === 0 ? '\u{1f947}' : i === 1 ? '\u{1f948}' : i === 2 ? '\u{1f949}' : (i + 1);
     return `<div class="hs-entry${isNew ? ' hs-new' : ''}">
       <span class="hs-rank">${rankIcon}</span>
-      <span class="hs-name">${charEmoji[s.character] || '👤'} ${s.name}</span>
-      <span class="hs-score">${'⭐'.repeat(s.stars)} ${s.score}pt</span>
+      <span class="hs-name">${charEmoji[s.character] || '\u{1f464}'} ${s.name}</span>
+      <span class="hs-score">${'\u2b50'.repeat(s.stars)} ${s.score}pt</span>
     </div>`;
   }).join('');
 }
@@ -1361,13 +1387,15 @@ function closeHighScore() {
   showStart();
 }
 
-function viewHighScores() {
+async function viewHighScores() {
   const screen = document.getElementById('highscore-screen');
   screen.style.display = 'flex';
   document.getElementById('hs-input-area').style.display = 'none';
   document.getElementById('hs-list-area').style.display = 'block';
-  renderHighScores(null);
+  const scores = await fetchHighScores();
+  renderHighScoreList(scores, null);
 }
+
 
 // ========================
 // INPUT
