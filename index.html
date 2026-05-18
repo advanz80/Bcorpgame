@@ -380,6 +380,7 @@ canvas {
     <button class="start-btn" onclick="showLevelSelect()">Speel Nu!</button>
     <button class="menu-btn" onclick="showInfo()">Wat is B-Corp?</button>
     <button class="menu-btn" onclick="viewHighScores()">&#127942; Hall of Fame</button>
+    <button class="menu-btn" id="reset-btn" onclick="confirmReset()" style="margin-top:18px; font-size:0.75em; opacity:0.6; border-color:rgba(255,255,255,0.2);">&#128260; Reset mijn score</button>
   </div>
 
   <!-- CHARACTER SELECT -->
@@ -1442,6 +1443,58 @@ async function viewHighScores() {
   renderHighScoreList(scores, null);
 }
 
+
+function confirmReset() {
+  const btn = document.getElementById('reset-btn');
+  if (btn.dataset.confirm === 'true') {
+    resetGame();
+    return;
+  }
+  btn.dataset.confirm = 'true';
+  btn.textContent = '⚠️ Weet je het zeker? Tik nogmaals';
+  btn.style.opacity = '1';
+  btn.style.borderColor = '#ff4444';
+  setTimeout(() => {
+    btn.dataset.confirm = '';
+    btn.innerHTML = '&#128260; Reset mijn score';
+    btn.style.opacity = '0.6';
+    btn.style.borderColor = 'rgba(255,255,255,0.2)';
+  }, 4000);
+}
+
+async function resetGame() {
+  const btn = document.getElementById('reset-btn');
+  btn.textContent = 'Resetten...';
+  btn.style.pointerEvents = 'none';
+
+  if (selectedChar) {
+    try {
+      const scores = await fetchHighScores();
+      const myEntry = scores.find(s => s.character === selectedChar && s.score === totalGameScore);
+      if (myEntry) {
+        await fetch('/api/highscores', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: myEntry.name, character: myEntry.character })
+        });
+      }
+    } catch(e) {}
+  }
+
+  localStorage.removeItem('bcorp_progress');
+  localStorage.removeItem('bcorp_highscores');
+
+  score = 0;
+  totalGameScore = 0;
+  unlockedLevels = [true, false, false, false];
+  levelStars = [0, 0, 0, 0];
+  levelScores = [0, 0, 0, 0];
+  selectedChar = '';
+  gameCompleted = false;
+
+  btn.textContent = '✅ Gereset!';
+  setTimeout(() => showStart(), 800);
+}
 
 // ========================
 // INPUT
