@@ -531,6 +531,7 @@ try {
     levelScores = saved.scores || levelScores;
     selectedChar = saved.character || '';
     gameCompleted = saved.gameCompleted || false;
+    if (!gameCompleted && levelStars.every(s => s > 0)) gameCompleted = true;
   }
 } catch(e) {}
 
