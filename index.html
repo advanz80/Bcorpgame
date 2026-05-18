@@ -512,6 +512,7 @@ let animFrame = 0;
 let particles = [];
 let unlockedLevels = [true, false, false, false];
 let levelStars = [0, 0, 0, 0];
+let levelScores = [0, 0, 0, 0];
 let selectedChar = ''; // 'man', 'vrouw', 'driessen'
 
 // Try to load progress
@@ -520,6 +521,7 @@ try {
   if (saved) {
     unlockedLevels = saved.unlocked || unlockedLevels;
     levelStars = saved.stars || levelStars;
+    levelScores = saved.scores || levelScores;
     selectedChar = saved.character || '';
   }
 } catch(e) {}
@@ -529,6 +531,7 @@ function saveProgress() {
     localStorage.setItem('bcorp_progress', JSON.stringify({
       unlocked: unlockedLevels,
       stars: levelStars,
+      scores: levelScores,
       character: selectedChar
     }));
   } catch(e) {}
@@ -1016,7 +1019,7 @@ resize();
 // ========================
 function showStart() {
   gameState = 'menu';
-  totalGameScore = 0;
+  totalGameScore = levelScores.reduce((a, b) => a + b, 0);
   document.getElementById('start-screen').classList.remove('hidden');
   document.getElementById('char-screen').classList.add('hidden');
   document.getElementById('level-screen').classList.add('hidden');
@@ -1229,7 +1232,7 @@ function closeKnowledge() {
 }
 
 // Track total score across all levels
-let totalGameScore = 0;
+let totalGameScore = levelScores.reduce((a, b) => a + b, 0);
 
 function showLevelComplete() {
   gameState = 'levelcomplete';
@@ -1247,7 +1250,8 @@ function showLevelComplete() {
 
   if (stars > levelStars[currentLevel]) levelStars[currentLevel] = stars;
   if (currentLevel + 1 < LEVELS.length) unlockedLevels[currentLevel + 1] = true;
-  totalGameScore += score;
+  levelScores[currentLevel] = score;
+  totalGameScore = levelScores.reduce((a, b) => a + b, 0);
   saveProgress();
 
   const starStr = '&#11088;'.repeat(stars) + '&#9734;'.repeat(3 - stars);
@@ -1383,7 +1387,6 @@ function renderHighScoreList(scores, highlightName) {
 
 function closeHighScore() {
   document.getElementById('highscore-screen').style.display = 'none';
-  totalGameScore = 0;
   showStart();
 }
 
