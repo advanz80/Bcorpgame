@@ -159,6 +159,12 @@ canvas {
   opacity: 0.4;
   pointer-events: none;
 }
+.level-card.completed {
+  opacity: 0.6;
+  pointer-events: none;
+  border-color: rgba(76,175,80,0.5);
+  background: rgba(76,175,80,0.15);
+}
 .level-card .level-icon { font-size: 2.2em; margin-bottom: 8px; }
 .level-card .level-name { font-size: 0.95em; font-weight: 700; }
 .level-card .level-sub { font-size: 0.75em; opacity: 0.7; margin-top: 4px; }
@@ -467,7 +473,7 @@ canvas {
       <div id="hs-input-area">
         <input type="text" id="hs-name" maxlength="20" placeholder="Jouw naam..." style="width:80%; padding:10px 14px; border-radius:10px; border:2px solid #e87722; background:#0d1b30; color:#fff; font-size:1em; text-align:center; outline:none; margin-bottom:12px;">
         <div id="hs-total-score" style="color:#f5a030; font-size:1.1em; margin-bottom:12px;"></div>
-        <button class="start-btn" onclick="submitHighScore()" style="margin-bottom:10px;">Opslaan &#128190;</button>
+        <button class="start-btn" id="hs-submit-btn" onclick="submitHighScore()" style="margin-bottom:10px;">Opslaan &#128190;</button>
       </div>
       <div id="hs-list-area" style="display:none;">
         <h3 style="color:#e87722; margin-bottom:10px;">&#127942; Hall of Fame</h3>
@@ -514,6 +520,7 @@ let unlockedLevels = [true, false, false, false];
 let levelStars = [0, 0, 0, 0];
 let levelScores = [0, 0, 0, 0];
 let selectedChar = ''; // 'man', 'vrouw', 'driessen'
+let gameCompleted = false;
 
 // Try to load progress
 try {
@@ -523,6 +530,7 @@ try {
     levelStars = saved.stars || levelStars;
     levelScores = saved.scores || levelScores;
     selectedChar = saved.character || '';
+    gameCompleted = saved.gameCompleted || false;
   }
 } catch(e) {}
 
@@ -532,7 +540,8 @@ function saveProgress() {
       unlocked: unlockedLevels,
       stars: levelStars,
       scores: levelScores,
-      character: selectedChar
+      character: selectedChar,
+      gameCompleted: gameCompleted
     }));
   } catch(e) {}
 }
@@ -1042,6 +1051,14 @@ function showLevelSelect() {
     showCharSelect();
     return;
   }
+  const allDone = levelStars.every(s => s > 0);
+  if (allDone && !gameCompleted) {
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('char-screen').classList.add('hidden');
+    document.getElementById('level-screen').classList.add('hidden');
+    showHighScoreInput();
+    return;
+  }
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('char-screen').classList.add('hidden');
   document.getElementById('level-screen').classList.remove('hidden');
@@ -1079,16 +1096,18 @@ function buildLevelGrid() {
   grid.innerHTML = '';
   LEVELS.forEach((lv, i) => {
     const card = document.createElement('div');
-    card.className = 'level-card' + (unlockedLevels[i] ? '' : ' locked');
+    const completed = levelStars[i] > 0;
+    const locked = !unlockedLevels[i];
+    card.className = 'level-card' + (locked ? ' locked' : completed ? ' completed' : '');
     const stars = levelStars[i];
     const starStr = '&#11088;'.repeat(stars) + '&#9734;'.repeat(3 - stars);
     card.innerHTML = `
       <div class="level-icon">${lv.icon}</div>
       <div class="level-name">${lv.name}</div>
       <div class="level-sub">${lv.subtitle}</div>
-      <div class="level-stars">${unlockedLevels[i] ? starStr : '&#128274;'}</div>
+      <div class="level-stars">${locked ? '&#128274;' : completed ? starStr + ' &#10003;' : starStr}</div>
     `;
-    if (unlockedLevels[i]) {
+    if (unlockedLevels[i] && !completed) {
       card.onclick = () => showLevelIntro(i);
     }
     grid.appendChild(card);
@@ -1329,6 +1348,14 @@ async function postHighScore(entry) {
 function showHighScoreInput() {
   const screen = document.getElementById('highscore-screen');
   screen.style.display = 'flex';
+
+  if (gameCompleted) {
+    document.getElementById('hs-input-area').style.display = 'none';
+    document.getElementById('hs-list-area').style.display = 'block';
+    fetchHighScores().then(scores => renderHighScoreList(scores, null));
+    return;
+  }
+
   document.getElementById('hs-input-area').style.display = 'block';
   document.getElementById('hs-list-area').style.display = 'none';
 
@@ -1338,16 +1365,25 @@ function showHighScoreInput() {
 
   const nameInput = document.getElementById('hs-name');
   nameInput.value = '';
+  const submitBtn = document.getElementById('hs-submit-btn');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Opslaan \u{1f4be}';
   setTimeout(() => nameInput.focus(), 100);
 }
 
 async function submitHighScore() {
+  const submitBtn = document.getElementById('hs-submit-btn');
+  if (submitBtn.disabled) return;
+
   const name = document.getElementById('hs-name').value.trim();
   if (!name) {
     document.getElementById('hs-name').style.borderColor = '#ff4444';
     setTimeout(() => document.getElementById('hs-name').style.borderColor = '#e87722', 1000);
     return;
   }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Opslaan...';
 
   const totalStars = levelStars.reduce((a, b) => a + b, 0);
   const newEntry = {
@@ -1360,9 +1396,15 @@ async function submitHighScore() {
 
   const scores = await postHighScore(newEntry);
 
-  document.getElementById('hs-input-area').style.display = 'none';
-  document.getElementById('hs-list-area').style.display = 'block';
-  renderHighScoreList(scores, name);
+  gameCompleted = true;
+  saveProgress();
+
+  submitBtn.textContent = '✅ Opgeslagen!';
+  setTimeout(() => {
+    document.getElementById('hs-input-area').style.display = 'none';
+    document.getElementById('hs-list-area').style.display = 'block';
+    renderHighScoreList(scores, name);
+  }, 1200);
 }
 
 function renderHighScoreList(scores, highlightName) {
